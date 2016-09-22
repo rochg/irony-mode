@@ -127,7 +127,7 @@ Right now `irony-cdb` supports the following compilation databases:
   it lists the compile options associated to each file in the project.
 
   * [CMake >= 2.8.5][cmake-ref] will generate a compilation database in the
-    build directory hen issuing the following command
+    build directory when issuing the following command
     `cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON <...>`.
 
   * [ninja >= 1.2][ninja-ref] will generate a JSON Compilation Database when
@@ -143,6 +143,9 @@ Right now `irony-cdb` supports the following compilation databases:
   generate the `.clang_complete` automatically, take a look at the
   [cc_args.py documentation][cc_args-py-doc-ref].
 
+More detailed information on compilation database is available here:
+
+* https://sarcasm.github.io/notes/dev/compilation-database.html
 
 ## FAQ
 
@@ -169,6 +172,13 @@ enable rpath in CMake use the following command:
 
     cmake -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON <args...>
 
+If you're running OS X, you can also use `install_name_tool` to explicitly
+tell `irony-server` where an appropriate version of `libclang.dylib` lives.
+For example, Homebrew (with `brew install llvm --with-clang`) will install
+a `libclang.dylib` library at `/usr/local/opt/llvm/lib/libclang.dylib`;
+you can instruct `irony-server` to use this with something like:
+
+    install_name_tool -change @rpath/libclang.dylib /usr/local/opt/llvm/lib/libclang.dylib irony-server
 
 [ac-irony-ref]: https://github.com/Sarcasm/ac-irony "AC Irony"
 [ac-ref]: https://github.com/auto-complete/auto-complete "Auto Complete"
@@ -186,6 +196,6 @@ enable rpath in CMake use the following command:
 [irony-eldoc-ref]: https://github.com/ikirill/irony-eldoc "irony-eldoc -- irony-mode support for eldoc-mode"
 [json-el-ref]: http://edward.oconnor.cx/2006/03/json.el "Introducing json.el"
 [libclang-ref]: http://clang.llvm.org/doxygen/group__CINDEX.html "libclang: C Interface to Clang"
-[ninja-ref]: http://martine.github.io/ninja/ "Ninja"
+[ninja-ref]: https://ninja-build.org "Ninja"
 [rpath-ref]: http://en.wikipedia.org/wiki/Rpath "rpath Wikipedia article"
 [yas-ref]: https://github.com/capitaomorte/yasnippet "YASnippet"

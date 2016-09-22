@@ -71,6 +71,59 @@ directories to project directory."
   ; and tell irony to load it now
   (irony-cdb-autosetup-compile-options))
 
+(defun irony-cdb-json--put-first (pos target-list)
+  (if (>= pos (length target-list))
+      target-list
+    (let ((elm (nth pos target-list)))
+      (append (list elm) (delete elm target-list)))))
+
+(defun irony-cdb-json--choose-cdb ()
+  "Prompt to select CDB from current project root."
+  (let* ((proot (irony-cdb-json--find-best-prefix-path
+                 (irony-cdb-json--target-path)
+                 (mapcar 'car irony-cdb-json--project-alist)))
+         (cdbs (mapcar 'cdr
+                       (cl-remove-if-not (lambda (x) (string-equal proot (car x)))
+                                         irony-cdb-json--project-alist))))
+    (completing-read "Choose Irony CDB: " cdbs nil 'require-match nil)))
+
+;;;###autoload
+(defun irony-cdb-json-select ()
+  "Select CDB to use with a prompt.
+
+It is useful when you have several CDBs with the same project
+root.
+
+The completion function used internally is `completing-read' so
+it could easily be used with other completion functions by
+temporarily using a let-bind on `completing-read-function'. Or
+even helm by enabling `helm-mode' before calling the function."
+  (interactive)
+  (let ((pos (cl-position (irony-cdb-json--choose-cdb)
+                          irony-cdb-json--project-alist
+                          :test (lambda (x y) (string-equal x (cdr y))))))
+    (setq irony-cdb-json--project-alist
+          (irony-cdb-json--put-first pos irony-cdb-json--project-alist))
+    (irony-cdb-json--save-project-alist)
+    (irony-cdb-autosetup-compile-options)))
+
+(defun irony-cdb-json--last-mod (file)
+  "File modification time or null time if file doesn't exist."
+  (or (nth 5 (file-attributes file))
+      '(0 0 0 0)))
+
+;;;###autoload
+(defun irony-cdb-json-select-most-recent ()
+  "Select CDB that is most recently modified."
+  (interactive)
+  (setq irony-cdb-json--project-alist
+        (sort irony-cdb-json--project-alist
+              (lambda (x y)
+                (time-less-p (irony-cdb-json--last-mod (cdr y))
+                             (irony-cdb-json--last-mod (cdr x))))))
+  (irony-cdb-json--save-project-alist)
+  (irony-cdb-autosetup-compile-options))
+
 (defun irony-cdb-json--get-compile-options ()
   (irony--awhen (irony-cdb-json--locate-db)
     (let ((db (irony-cdb-json--load-db it)))
@@ -115,18 +168,18 @@ directories to project directory."
 
 (defun irony-cdb-json--locate-db ()
   (irony-cdb-json--ensure-project-alist-loaded)
-  (irony--aif (irony-cdb--locate-dominating-file-with-dirs
+  (irony--aif (irony-cdb-json--find-best-prefix-path
                (irony-cdb-json--target-path)
-               "compile_commands.json"
-               irony-cdb-search-directory-list)
-      (expand-file-name it)
-    ;; if not in a parent directory, look in the project alist
-    (irony--awhen (irony-cdb-json--find-best-prefix-path
-                   (irony-cdb-json--target-path)
-                   (mapcar 'car irony-cdb-json--project-alist))
+               (mapcar 'car irony-cdb-json--project-alist))
       (expand-file-name
        (cdr (assoc it irony-cdb-json--project-alist))
-       it))))
+       it)
+    ;; If not in the project table, look in the dominating directories
+    (irony--awhen (irony-cdb--locate-dominating-file-with-dirs
+                   (irony-cdb-json--target-path)
+                   "compile_commands.json"
+                   irony-cdb-search-directory-list)
+      (expand-file-name it))))
 
 (defun irony-cdb-json--load-db (json-file)
   (delq nil (mapcar #'irony-cdb-json--transform-compile-command
@@ -158,7 +211,7 @@ directories to project directory."
 
 (defun irony-cdb-json--compile-command-options (compile-command)
   "Return the compile options of COMPILE-COMMAND as a list."
-  (cdr                                  ;remove compiler from returned value
+  (irony-cdb--remove-compiler-from-flags
    (irony--split-command-line (cdr (assq 'command compile-command)))))
 
 (defun irony-cdb-json--adjust-compile-options (compile-options file default-dir)
