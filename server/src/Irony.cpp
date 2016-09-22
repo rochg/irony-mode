@@ -368,6 +368,16 @@ void Irony::complete(const std::string &file,
     clang_disposeCodeCompleteResults(completions);
     std::cout << ")\n";
   }
+  else
+    {
+      // If clang_codeCompleteAt fails it will return NULL. Sometimes
+      // this happens and will be accompanied by
+      // "libclang: crash detected in code completion" being written to
+      // stderr. In these failure cases, we will should still provide a
+      // response to the caller on stdout.
+      std::cout << "nil\n";
+      std::clog << "Handled code completion crash\n";
+    }
 
 }
 
